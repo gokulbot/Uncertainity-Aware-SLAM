@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(mac_vo_model)
 
-
 ####### mac vo model library ##########
 
 # Add libraries and linking files for imu pre integration module gtsam 
@@ -14,4 +13,4 @@ target_include_directories(mac_vo_model PUBLIC ${FRAMES_INCLUDE_DIRS} include)
 target_link_libraries(mac_vo_model PUBLIC ${OpenCV_LIBS} timer logger torch)
 
 # test executable
-
+add_executable(test_mac_vo_model test/test_mac_vo_model.cpp)
