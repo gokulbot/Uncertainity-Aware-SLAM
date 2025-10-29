@@ -1,23 +1,53 @@
-# ============================================================
-# Base image: Ubuntu 22.04 + CUDA 12.4 + cuDNN + Dev tools
-# ============================================================
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
+# ------------------------------------------------------------
+# NVIDIA runtime
+# ------------------------------------------------------------
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ------------------------------------------------------------
-# Basic development dependencies
+# Basic utilities and Python
 # ------------------------------------------------------------
-RUN apt-get update && apt-get install -y \
-    build-essential cmake git wget curl unzip pkg-config \
-    software-properties-common \
-    libgoogle-glog-dev libatlas-base-dev libeigen3-dev libboost-all-dev \
-    python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y unzip sudo git wget python3-pip ffmpeg \
+    libsm6 libxext6 libgtk-3-dev libxkbcommon-x11-0 vulkan-tools && \
+    rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
-# ===== Install ROS 2 Humble (on Ubuntu 22.04) =====
+# Add universe/multiverse repos
 # ------------------------------------------------------------
+RUN apt-get update && apt-get install -y software-properties-common && \
+    add-apt-repository universe && add-apt-repository multiverse && apt-get update
+
+# ------------------------------------------------------------
+# Create non-root user
+# ------------------------------------------------------------
+ARG USERNAME=macvo
+RUN useradd -ms /bin/bash ${USERNAME} && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER ${USERNAME}
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+WORKDIR /home/${USERNAME}
+SHELL ["/bin/bash", "-l", "-c"]
+
+# ------------------------------------------------------------
+# Python deps
+# ------------------------------------------------------------
+RUN sudo pip3 install --upgrade pip && \
+    sudo pip3 install --no-cache-dir \
+      "pypose>=0.6.8" opencv-python-headless evo \
+      matplotlib tabulate tqdm rich cupy-cuda12x einops \
+      "timm==0.9.12" "rerun-sdk==0.21.0" yacs numpy \
+      pyyaml wandb pillow scipy flow_vis h5py \
+      "xformers==0.0.27.post2" onnx torchvision \
+      jaxtyping "typeguard==2.13.3"
+
+# ------------------------------------------------------------
+# ===== Install ROS 2 Humble =====
+# ------------------------------------------------------------
+USER root
 RUN apt-get update && apt-get install -y locales && \
     locale-gen en_US en_US.UTF-8 && \
     update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
@@ -31,23 +61,33 @@ RUN apt-get update && apt-get install -y locales && \
     echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 
 # ------------------------------------------------------------
-# ===== Install OpenCV 4.9 with CUDA =====
+# ===== Build & install OpenCV (4.x branch with CUDA fix) =====
 # ------------------------------------------------------------
+RUN apt-get update && apt-get install -y \
+      build-essential cmake git pkg-config \
+      libjpeg-dev libpng-dev libtiff-dev \
+      libavcodec-dev libavformat-dev libswscale-dev \
+      libv4l-dev libxvidcore-dev libx264-dev \
+      libgtk-3-dev libcanberra-gtk-module libcanberra-gtk3-module \
+      libtbb-dev libopenexr-dev libatlas-base-dev gfortran python3-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /opt
-RUN git clone --branch 4.9.0 https://github.com/opencv/opencv.git && \
-    git clone --branch 4.9.0 https://github.com/opencv/opencv_contrib.git && \
+RUN git clone --branch 4.x --depth 1 https://github.com/opencv/opencv.git && \
+    git clone --branch 4.x --depth 1 https://github.com/opencv/opencv_contrib.git && \
     mkdir -p /opt/opencv/build && cd /opt/opencv/build && \
     cmake -D CMAKE_BUILD_TYPE=Release \
           -D CMAKE_INSTALL_PREFIX=/usr/local \
           -D OPENCV_EXTRA_MODULES_PATH=/opt/opencv_contrib/modules \
           -D WITH_CUDA=ON \
           -D WITH_CUDNN=ON \
-          -D CUDA_ARCH_BIN="7.5 8.6 8.9" \
+          -D ENABLE_FAST_MATH=1 \
+          -D CUDA_FAST_MATH=1 \
+          -D WITH_CUBLAS=1 \
           -D BUILD_opencv_python_bindings_generator=OFF \
-          -D BUILD_EXAMPLES=OFF \
-          -D BUILD_TESTS=OFF \
-          .. && \
-    make -j$(nproc) && make install && ldconfig
+          -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_DOCS=OFF \
+          -D CUDA_ARCH_BIN="7.5 8.6" .. && \
+    make -j$(nproc --ignore=2 || echo 4) && make install && ldconfig
 
 # ------------------------------------------------------------
 # ===== Install g2o =====
@@ -55,8 +95,7 @@ RUN git clone --branch 4.9.0 https://github.com/opencv/opencv.git && \
 WORKDIR /opt
 RUN git clone https://github.com/RainerKuemmerle/g2o.git && \
     mkdir -p g2o/build && cd g2o/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local \
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
           -DBUILD_SHARED_LIBS=ON .. && \
     make -j$(nproc) && make install && ldconfig
 
@@ -65,7 +104,9 @@ RUN git clone https://github.com/RainerKuemmerle/g2o.git && \
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN git clone https://github.com/borglab/gtsam.git && \
-    mkdir -p gtsam/build && cd gtsam/build && \
+    cd gtsam && \
+    git checkout 4.2 && \
+    mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DGTSAM_BUILD_WITH_MARCH_NATIVE=OFF \
           -DGTSAM_BUILD_TESTS=OFF \
@@ -74,34 +115,22 @@ RUN git clone https://github.com/borglab/gtsam.git && \
           -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
     make -j$(nproc) && make install && ldconfig
 
+
 # ------------------------------------------------------------
-# ===== Install LibTorch (C++ PyTorch 2.4 + CUDA 12.4) =====
+# ===== Install LibTorch (C++ PyTorch 2.4 + cu124) =====
 # ------------------------------------------------------------
 WORKDIR /opt
-RUN wget https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip && \
-    unzip libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip && \
-    rm libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip
+RUN curl -L -o libtorch.zip https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip && \
+    unzip libtorch.zip && \
+    rm libtorch.zip
 ENV Torch_DIR=/opt/libtorch
 ENV CMAKE_PREFIX_PATH=${Torch_DIR}
-
-# ------------------------------------------------------------
-# ===== Build MAC_VO =====
-# ------------------------------------------------------------
-WORKDIR /workspace/MAC_VO
-COPY . /workspace/MAC_VO
-
-RUN mkdir -p build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j$(nproc)
-
-# ------------------------------------------------------------
-# ===== Environment Setup =====
-# ------------------------------------------------------------
 ENV LD_LIBRARY_PATH=/usr/local/lib:/opt/libtorch/lib:$LD_LIBRARY_PATH
-ENV PATH=/usr/local/bin:$PATH
-SHELL ["/bin/bash", "-c"]
 
 # ------------------------------------------------------------
-# Default command
+# Default shell
 # ------------------------------------------------------------
-CMD ["bash"]
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+CMD ["/bin/bash"]
+
