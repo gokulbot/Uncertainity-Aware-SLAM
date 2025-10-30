@@ -1,8 +1,8 @@
+# ------------------------------------------------------------
+# Base image: CUDA 12.4 + cuDNN on Ubuntu 22.04
+# ------------------------------------------------------------
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-# ------------------------------------------------------------
-# NVIDIA runtime
-# ------------------------------------------------------------
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,31 +12,28 @@ ENV DEBIAN_FRONTEND=noninteractive
 # ------------------------------------------------------------
 RUN apt-get update && \
     apt-get install -y unzip sudo git wget python3-pip ffmpeg \
-    libsm6 libxext6 libgtk-3-dev libxkbcommon-x11-0 vulkan-tools && \
+    libsm6 libxext6 libgtk-3-dev libxkbcommon-x11-0 vulkan-tools \
+    software-properties-common locales curl gnupg lsb-release gosu && \
     rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
 # Add universe/multiverse repos
 # ------------------------------------------------------------
-RUN apt-get update && apt-get install -y software-properties-common && \
-    add-apt-repository universe && add-apt-repository multiverse && apt-get update
+RUN add-apt-repository universe && add-apt-repository multiverse && apt-get update
 
 # ------------------------------------------------------------
-# Create non-root user
+# Locale setup
 # ------------------------------------------------------------
-ARG USERNAME=macvo
-RUN useradd -ms /bin/bash ${USERNAME} && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-USER ${USERNAME}
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
-WORKDIR /home/${USERNAME}
-SHELL ["/bin/bash", "-l", "-c"]
+RUN locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
 
 # ------------------------------------------------------------
-# Python deps
+# Upgrade pip + install Python packages
 # ------------------------------------------------------------
-RUN sudo pip3 install --upgrade pip && \
-    sudo pip3 install --no-cache-dir \
+RUN pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir \
       "pypose>=0.6.8" opencv-python-headless evo \
       matplotlib tabulate tqdm rich cupy-cuda12x einops \
       "timm==0.9.12" "rerun-sdk==0.21.0" yacs numpy \
@@ -47,22 +44,18 @@ RUN sudo pip3 install --upgrade pip && \
 # ------------------------------------------------------------
 # ===== Install ROS 2 Humble =====
 # ------------------------------------------------------------
-USER root
-RUN apt-get update && apt-get install -y locales && \
-    locale-gen en_US en_US.UTF-8 && \
-    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
-    apt-get install -y curl gnupg lsb-release && \
-    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
       -o /usr/share/keyrings/ros-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
       http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
       | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
     apt-get update && apt-get install -y ros-humble-desktop && \
-    echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+    echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc
 
 # ------------------------------------------------------------
-# ===== Build & install OpenCV (4.x branch with CUDA fix) =====
+# ===== Build & install OpenCV (4.x branch with CUDA) =====
 # ------------------------------------------------------------
+WORKDIR /opt
 RUN apt-get update && apt-get install -y \
       build-essential cmake git pkg-config \
       libjpeg-dev libpng-dev libtiff-dev \
@@ -70,9 +63,8 @@ RUN apt-get update && apt-get install -y \
       libv4l-dev libxvidcore-dev libx264-dev \
       libgtk-3-dev libcanberra-gtk-module libcanberra-gtk3-module \
       libtbb-dev libopenexr-dev libatlas-base-dev gfortran python3-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*
 
-WORKDIR /opt
 RUN git clone --branch 4.x --depth 1 https://github.com/opencv/opencv.git && \
     git clone --branch 4.x --depth 1 https://github.com/opencv/opencv_contrib.git && \
     mkdir -p /opt/opencv/build && cd /opt/opencv/build && \
@@ -115,22 +107,22 @@ RUN git clone https://github.com/borglab/gtsam.git && \
           -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
     make -j$(nproc) && make install && ldconfig
 
-
 # ------------------------------------------------------------
 # ===== Install LibTorch (C++ PyTorch 2.4 + cu124) =====
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN curl -L -o libtorch.zip https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip && \
-    unzip libtorch.zip && \
-    rm libtorch.zip
+    unzip libtorch.zip && rm libtorch.zip
 ENV Torch_DIR=/opt/libtorch
 ENV CMAKE_PREFIX_PATH=${Torch_DIR}
 ENV LD_LIBRARY_PATH=/usr/local/lib:/opt/libtorch/lib:$LD_LIBRARY_PATH
 
 # ------------------------------------------------------------
-# Default shell
+# ===== Dynamic user creation (fix "I have no name!" + permissions) =====
 # ------------------------------------------------------------
-USER ${USERNAME}
-WORKDIR /home/${USERNAME}
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/bin/bash"]
 

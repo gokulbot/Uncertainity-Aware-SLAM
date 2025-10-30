@@ -5,6 +5,8 @@ project(MAC_VO)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Release)
 
+set(torch_DIR "/opt/libtorch/share/cmake/Torch")    
+
 ################################################find packages###############################################
 find_package(OpenCV REQUIRED)
 find_package(g2o REQUIRED)
