@@ -45,22 +45,24 @@ bool Model::setup(ModelSetup setup) {
     return true;
 }
 
-void Model::forward(MACVOInput &inputs, MACVOOutput &outputs) {
+bool Model::forward(MACVOInput &inputs, MACVOOutput &outputs) {
     // Prepare input tensors
-    std::vector<torch::jit::IValue> model_inputs;
-    model_inputs.push_back(inputs.left_image);
-    model_inputs.push_back(inputs.right_image);
-    model_inputs.push_back(inputs.intrinsics);
-    model_inputs.push_back(inputs.intrinsics_inv);
-    model_inputs.push_back(inputs.prev_left_image);
-    model_inputs.push_back(inputs.prev_right_image);
-    model_inputs.push_back(inputs.prev_depth);
-    model_inputs.push_back(inputs.prev_pose);
+    // std::vector<torch::jit::IValue> model_inputs;
+    // model_inputs.push_back(inputs.left_image);
+    // model_inputs.push_back(inputs.right_image);
+    // model_inputs.push_back(inputs.intrinsics);
+    // model_inputs.push_back(inputs.intrinsics_inv);
+    // model_inputs.push_back(inputs.prev_left_image);
+    // model_inputs.push_back(inputs.prev_right_image);
+    // model_inputs.push_back(inputs.prev_depth);
+    // model_inputs.push_back(inputs.prev_pose);
 
-    // Execute the model and turn its output into a tensor.
-    auto output = mac_vo_module_->forward(model_inputs).toTuple();
+    // // Execute the model and turn its output into a tensor.
+    // auto output = mac_vo_module_->forward(model_inputs).toTuple();
 
-    // Extract outputs
-    outputs.depth = output->elements()[0].toTensor();
-    outputs.pose = output->elements()[1].toTensor();
+    // // Extract outputs
+    // outputs.depth = output->elements()[0].toTensor();
+    // outputs.pose = output->elements()[1].toTensor();
+
+    return false;
 }

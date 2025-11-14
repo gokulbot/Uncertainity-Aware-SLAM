@@ -3,8 +3,8 @@
 # ------------------------------------------------------------
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ------------------------------------------------------------
@@ -26,8 +26,8 @@ RUN add-apt-repository universe && add-apt-repository multiverse && apt-get upda
 # ------------------------------------------------------------
 RUN locale-gen en_US en_US.UTF-8 && \
     update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-ENV LANG en_US.UTF-8
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # ------------------------------------------------------------
 # Upgrade pip + install Python packages
@@ -42,7 +42,7 @@ RUN pip3 install --upgrade pip && \
       jaxtyping "typeguard==2.13.3"
 
 # ------------------------------------------------------------
-# ===== Install ROS 2 Humble =====
+# ===== ROS 2 Humble =====
 # ------------------------------------------------------------
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
       -o /usr/share/keyrings/ros-archive-keyring.gpg && \
@@ -53,7 +53,7 @@ RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
     echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc
 
 # ------------------------------------------------------------
-# ===== Build & install OpenCV (4.x branch with CUDA) =====
+# ===== OpenCV 4.x (CUDA) =====
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN apt-get update && apt-get install -y \
@@ -82,7 +82,7 @@ RUN git clone --branch 4.x --depth 1 https://github.com/opencv/opencv.git && \
     make -j$(nproc --ignore=2 || echo 4) && make install && ldconfig
 
 # ------------------------------------------------------------
-# ===== Install g2o =====
+# ===== g2o =====
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN git clone https://github.com/RainerKuemmerle/g2o.git && \
@@ -92,12 +92,11 @@ RUN git clone https://github.com/RainerKuemmerle/g2o.git && \
     make -j$(nproc) && make install && ldconfig
 
 # ------------------------------------------------------------
-# ===== Install GTSAM =====
+# ===== GTSAM =====
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN git clone https://github.com/borglab/gtsam.git && \
-    cd gtsam && \
-    git checkout 4.2 && \
+    cd gtsam && git checkout 4.2 && \
     mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DGTSAM_BUILD_WITH_MARCH_NATIVE=OFF \
@@ -108,20 +107,21 @@ RUN git clone https://github.com/borglab/gtsam.git && \
     make -j$(nproc) && make install && ldconfig
 
 # ------------------------------------------------------------
-# ===== Install LibTorch (C++ PyTorch 2.4 + cu124) =====
+# ===== LibTorch =====
 # ------------------------------------------------------------
 WORKDIR /opt
 RUN curl -L -o libtorch.zip https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.4.0%2Bcu124.zip && \
     unzip libtorch.zip && rm libtorch.zip
-ENV Torch_DIR=/opt/libtorch
-ENV CMAKE_PREFIX_PATH=${Torch_DIR}
+
+ENV torch_DIR=/opt/libtorch/share/cmake/Torch
+ENV CMAKE_PREFIX_PATH=${torch_DIR}
 ENV LD_LIBRARY_PATH=/usr/local/lib:/opt/libtorch/lib:$LD_LIBRARY_PATH
 
 # ------------------------------------------------------------
-# ===== Dynamic user creation (fix "I have no name!" + permissions) =====
+# Entrypoint (ROOT always)
 # ------------------------------------------------------------
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/bin/bash"]

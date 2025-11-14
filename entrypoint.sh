@@ -1,17 +1,15 @@
 #!/bin/bash
 set -e
 
-USER_ID=${LOCAL_USER_ID:-1000}
-GROUP_ID=${LOCAL_GROUP_ID:-1000}
 USER_NAME=${LOCAL_USER_NAME:-developer}
 
-if ! id "$USER_NAME" &>/dev/null; then
-    groupadd -g "$GROUP_ID" "$USER_NAME"
-    useradd -m -s /bin/bash -u "$USER_ID" -g "$GROUP_ID" "$USER_NAME"
-fi
+# Export environment variables for CMake
+export torch_DIR=/opt/libtorch/share/cmake/Torch
+export CMAKE_PREFIX_PATH=$torch_DIR
+export LD_LIBRARY_PATH=/usr/local/lib:/opt/libtorch/lib:$LD_LIBRARY_PATH
 
-echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# If $PWD is a mounted folder, cd there; otherwise fallback
+TARGET_DIR=${PWD:-$HOME/build}
+cd "$TARGET_DIR"
 
-export HOME=/home/$USER_NAME
-exec gosu "$USER_NAME" "$@"
-        
+exec "$@"

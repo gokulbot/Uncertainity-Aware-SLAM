@@ -17,7 +17,7 @@
 #include <memory>
 #include <mutex>
 
-#include "slam_configs.h"
+#include "configs.h"
 
 /**
  * @class Logger

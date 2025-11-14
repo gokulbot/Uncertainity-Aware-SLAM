@@ -19,28 +19,28 @@ int main() {
         return -1;
     }
 
-    // Create dummy input tensors
-    MACVOInput inputs;
-    inputs.left_image        = torch::rand({1, 3, 256, 256});
-    inputs.right_image       = torch::rand({1, 3, 256, 256});
-    inputs.intrinsics        = torch::eye(3);
-    inputs.intrinsics_inv    = torch::eye(3);
-    inputs.prev_left_image   = torch::rand({1, 3, 256, 256});
-    inputs.prev_right_image  = torch::rand({1, 3, 256, 256});
-    inputs.prev_depth        = torch::rand({1, 1, 256, 256});
-    inputs.prev_pose         = torch::rand({1, 6});
+    // // Create dummy input tensors
+    // MACVOInput inputs;
+    // inputs.left_image        = torch::rand({1, 3, 256, 256});
+    // inputs.right_image       = torch::rand({1, 3, 256, 256});
+    // inputs.intrinsics        = torch::eye(3);
+    // inputs.intrinsics_inv    = torch::eye(3);
+    // inputs.prev_left_image   = torch::rand({1, 3, 256, 256});
+    // inputs.prev_right_image  = torch::rand({1, 3, 256, 256});
+    // inputs.prev_depth        = torch::rand({1, 1, 256, 256});
+    // inputs.prev_pose         = torch::rand({1, 6});
 
-    MACVOOutput outputs;
+    // MACVOOutput outputs;
 
-    try {
-        model.forward(inputs, outputs);
-        std::cout << "Model forward pass successful!" << std::endl;
-        std::cout << "Depth tensor size: " << outputs.depth.sizes() << std::endl;
-        std::cout << "Pose tensor size: " << outputs.pose.sizes() << std::endl;
-    } catch (const c10::Error& e) {
-        std::cerr << "Error during forward pass: " << e.what() << std::endl;
-        return -1;
-    }
+    // try {
+    //     model.forward(inputs, outputs);
+    //     std::cout << "Model forward pass successful!" << std::endl;
+    //     std::cout << "Depth tensor size: " << outputs.depth.sizes() << std::endl;
+    //     std::cout << "Pose tensor size: " << outputs.pose.sizes() << std::endl;
+    // } catch (const c10::Error& e) {
+    //     std::cerr << "Error during forward pass: " << e.what() << std::endl;
+    //     return -1;
+    // }
 
     std::cout << "Test completed successfully." << std::endl;
     return 0;

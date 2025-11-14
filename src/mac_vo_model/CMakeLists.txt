@@ -13,4 +13,5 @@ target_include_directories(mac_vo_model PUBLIC ${FRAMES_INCLUDE_DIRS} include)
 target_link_libraries(mac_vo_model PUBLIC ${OpenCV_LIBS} timer logger torch)
 
 # test executable
-add_executable(test_mac_vo_model test/test_mac_vo_model.cpp)
+add_executable(test_mac_vo_model tests/test_mac_vo_model.cpp)
+target_link_libraries(test_mac_vo_model PRIVATE mac_vo_model ${OpenCV_LIBS} timer logger torch)

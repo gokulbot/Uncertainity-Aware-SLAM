@@ -1,5 +1,5 @@
 #pragma once
-#include "setup.h"
+#include "model_frames.h"
 #include <torch/script.h> // One-stop header.
 #include <memory>
 #include "logger.h"
@@ -40,7 +40,7 @@ public:
      * @note This function will terminate the program if the model
      *       cannot be loaded.
      */
-    void setup(ModelSetup setup);
+    bool setup(ModelSetup setup);
 
     /**
      * @brief Inferes a forward pass through the model.
