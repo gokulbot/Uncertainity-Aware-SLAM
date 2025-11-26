@@ -8,7 +8,7 @@ int main() {
 
     // Create a dummy model setup
     ModelSetup setup;
-    setup.model_path = "dummy_model.pt"; // Replace with your actual model file path
+    setup.model_path = "/work/models/MACVO_FrontendCov.pth"; // Replace with your actual model file path
 
     // Create Model instance
     Model model;
