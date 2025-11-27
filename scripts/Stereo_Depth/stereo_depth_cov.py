@@ -4,7 +4,6 @@ from typing import TypeVar, Sequence, Callable, Optional, Literal
 from Utility.Utils import reflect_torch_dtype
 from Utility.Extensions import OnCallCompiler
 
-
 class FlowFormerCovDepth:
     """
     Estimate disparity and depth uncertainty using FlowFormer.

@@ -21,7 +21,7 @@ def reflect_torch_dtype(type_string: Literal["fp32", "bf16", "fp16"]) -> torch.d
         raise ValueError(f"Expect to be one of fp32/bf16/fp16, but got `{type_string}`")
 
 
-def StructuralMove(obj, device) -> Optional[torch.Tensor] or list or dict:
+def StructuralMove(obj, device)  -> Optional[torch.Tensor] or list or dict:
     if torch.is_tensor(obj):
         return obj.to(device)
     elif obj is None:
